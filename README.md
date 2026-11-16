@@ -9,8 +9,8 @@ storná, opravy inventúry, prevody medzi partnermi a export JSON/CSV.
 - GitHub: `hudecd/D5MFER-App`, produkčná vetva `main`.
 - Vercel: `d5mfer-app`, tím `d5-mfer`, Node.js 24, výstup `public/`.
 - Git integrácia nasadzuje každý push; GitHub Actions overuje kód a testy.
-- Appka: https://d5mfer-app.vercel.app
-- Testovací katalóg: https://d5mfer-app.vercel.app/katalog.html
+- Appka: https://d5mfer-app-d5-mfer.vercel.app
+- Testovací katalóg: https://d5mfer-app-d5-mfer.vercel.app/katalog.html
 
 Aktuálne je nasadený **testovací režim**. Pôvodný web `d5mfer.vercel.app` sa
 nemení. Testovacie transakcie sú trvalo uložené v súkromnom úložisku, nie iba
@@ -88,7 +88,7 @@ inštalácii** s `ALLOW_TEST_RESET=yes`; dočasné QA dáta po sebe vymaže.
 3. Zadať skutočné počiatočné množstvá a dohodnúť, ako sa evidujú staršie platby.
 4. Nastaviť APP_MODE=live a aktualizovať texty testovacieho katalógu/odkazov.
 5. Na existujúcom projekte `d5mfer` nastaviť a overiť presné presmerovanie dát
-   `/catalog.json` na `https://d5mfer-app.vercel.app/api/index?action=catalog`
+   `/catalog.json` na `https://d5mfer-app-d5-mfer.vercel.app/api/index?action=catalog`
    (project-level rewrite, nie HTTP redirect). Zachovať existujúce routy a cache
    `no-store`. Toto prepojenie zatiaľ **nie je zapnuté**.
 6. Overiť posledný kus, nový produkt, fotky, galériu a počty na pôvodnom webe.
