@@ -4,11 +4,13 @@ import { randomUUID, randomBytes } from 'node:crypto';
 import { put } from '@vercel/blob';
 import { initialState } from '../lib/domain.mjs';
 if(process.env.ALLOW_TEST_RESET!=='yes')throw new Error('Set ALLOW_TEST_RESET=yes for an unused test installation.');
+const ledgerPath=process.env.D5_LEDGER_PATH;
+if(process.env.APP_MODE!=='test'||!ledgerPath||!/^private\/(development|preview)-ledger-v1\.json$/.test(ledgerPath))throw new Error('Integration tests may reset only the separate development or preview ledger.');
 const base=process.env.TEST_BASE_URL||'http://localhost:3000';
 let cookie='';
 async function call(action,data,authenticated=true){const response=await fetch(`${base}/api/index?action=${action}`,{method:data===undefined?'GET':'POST',headers:{...(data===undefined?{}:{'Content-Type':'application/json',Origin:base}),...(authenticated&&cookie?{Cookie:cookie}:{})},body:data===undefined?undefined:JSON.stringify(data)});if(response.headers.get('set-cookie'))cookie=response.headers.get('set-cookie').split(';')[0];return{status:response.status,data:await response.json()};}
 const command=data=>call('command',{key:randomUUID(),date:'2026-11-16',...data});
-const status=await call('status');assert.equal(status.data.initialized,false,'Refuse to test an initialized installation.');
+const status=await call('status');assert.equal(status.data.mode,'test','Refuse to run integration tests against a live installation.');assert.equal(status.data.initialized,false,'Refuse to test an initialized installation.');
 try{
   assert.equal((await call('state')).status,401);
   const pass=randomBytes(24).toString('base64url');
@@ -33,6 +35,6 @@ try{
   await call('logout',{});cookie='';assert.equal((await call('state')).status,401);assert.equal((await call('login',{person:'Fero',password:pass})).status,200);
   console.log('PASS: activation, private access, concurrent last-item sale, public visibility, reversal, receipt retry, photo upload, new product, password, logout, partner login.');
 }finally{
-  await put('private/d5mfer-ledger-v1.json',JSON.stringify(initialState()),{access:'private',addRandomSuffix:false,allowOverwrite:true,contentType:'application/json'});
+  await put(ledgerPath,JSON.stringify(initialState()),{access:'private',addRandomSuffix:false,allowOverwrite:true,contentType:'application/json'});
   console.log('Temporary QA records reset. Installation awaits the owners’ activation and real opening counts.');
 }

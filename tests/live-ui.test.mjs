@@ -1,0 +1,21 @@
+import { test } from 'node:test';
+import assert from 'node:assert/strict';
+import { readFile } from 'node:fs/promises';
+import { JSDOM } from 'jsdom';
+import { randomUUID } from 'node:crypto';
+import { initialState, snapshot } from '../lib/domain.mjs';
+import { allocateShipmentCosts } from '../public/shipment-costs.js';
+test('live mode starts with empty stock, points to main storefront and hides test notices',async()=>{
+  const html=await readFile(new URL('../public/index.html',import.meta.url),'utf8'),code=await readFile(new URL('../public/app.js',import.meta.url),'utf8');
+  const dom=new JSDOM(html,{url:'https://d5mfer-app-d5-mfer.vercel.app/',runScripts:'outside-only'}),w=dom.window,state=initialState();
+  state.products=[];w.allocateShipmentCosts=allocateShipmentCosts;w.crypto.randomUUID=randomUUID;w.scrollTo=()=>{};
+  w.fetch=async url=>({ok:true,json:async()=>url.includes('action=status')?{initialized:true,mode:'live'}:snapshot(state,'Damian')});
+  w.eval(code.replace(/^import .*\n/,''));
+  for(let n=0;n<40&&!w.document.querySelector('#new-sale');n++)await new Promise(r=>setTimeout(r,5));
+  assert.ok(w.document.querySelector('#new-sale'));
+  assert.equal(w.document.querySelector('#app').textContent.includes('Testovací režim'),false);
+  assert.ok([...w.document.querySelectorAll('a')].some(a=>a.href==='https://d5mfer.vercel.app/'&&a.textContent.includes('verejný katalóg')));
+  w.document.querySelector('[data-nav=stock]').click();assert.equal(w.document.querySelectorAll('.product-card').length,0);
+  w.document.querySelector('[data-nav=accounts]').click();assert.ok([...w.document.querySelectorAll('a')].some(a=>a.href==='https://d5mfer.vercel.app/'&&a.textContent.includes('Verejný katalóg')));
+  w.close();
+});

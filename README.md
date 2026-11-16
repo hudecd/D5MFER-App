@@ -54,7 +54,7 @@ popisu. Pred uložením ho možno upraviť; pri existujúcom produkte je tlačid
 nový návrh. Server používa Vercel AI Gateway a SDK `ai`, s existujúcim OIDC
 Vercel runtime alebo s explicitne nastaveným `AI_GATEWAY_API_KEY`. Model možno
 zmeniť cez `AI_GATEWAY_MODEL` (predvolený `openai/gpt-5.4-mini`, overený v živom
-zozname modelov). Nasadená testovacia appka má `AI_GATEWAY_MODEL=openai/gpt-5.4-nano`,
+zozname modelov). Nasadená appka má `AI_GATEWAY_MODEL=openai/gpt-5.4-nano`,
 ktorý je dostupný z aktivovaného bezplatného kreditu. Pôvodný model mini nie je
 v bezplatnej ponuke. Generovanie s modelom nano bolo overené živou fotografiou
 a úspešnou odpoveďou 200. Žiadny poskytovateľský kľúč nepatrí do klienta. Generovanie
@@ -67,23 +67,38 @@ dopĺňa podľa údajov majiteľov. Výpadok AI nevymaže vyplnený formulár.
 
 - GitHub: `hudecd/D5MFER-App`, produkčná vetva `main`.
 - Vercel: `d5mfer-app`, tím `d5-mfer`, Node.js 24, výstup `public/`.
-- Git integrácia nasadzuje každý push; GitHub Actions overuje kód a testy.
+- Git integrácia je nastavená pre main. Doterajšie verzie boli nasadené cez Vercel API; odoslanie zdrojov do GitHubu čaká na oprávnenie Contents write. GitHub Actions sú pripravené v zdrojoch.
 - Appka: https://d5mfer-app-d5-mfer.vercel.app
-- Testovací katalóg: https://d5mfer-app-d5-mfer.vercel.app/katalog.html
+- Doplnkový náhľad katalógu: https://d5mfer-app-d5-mfer.vercel.app/katalog.html
 
-Aktuálne je nasadený **testovací režim**. Pôvodný web `d5mfer.vercel.app` sa
-nemení. Testovacie transakcie sú trvalo uložené v súkromnom úložisku, nie iba
-v prehliadači. Po používateľskom testovaní je potrebný výslovný reset a prechod
-na ostrú prevádzku. Zmena APP_MODE sama osebe nepripojí pôvodný web.
+Aktuálne je nasadená **ostrá verzia** (`APP_MODE=live`). Hlavný verejný web
+https://d5mfer.vercel.app číta spoločný katalóg cez projektové prepísanie
+`/catalog.json` na `https://d5mfer-app-d5-mfer.vercel.app/api/index?action=catalog`.
+Verejný web nemení prihlasovanie appky ani svoje existujúce serverové formuláre.
+
+Pred prechodom na ostrú prevádzku 16. 11. 2026 bol na výslovnú žiadosť majiteľov
+vymazaný celý sklad a všetky finančné pohyby. Pred resetom sa vytvorila a po
+stiahnutí overila úplná súkromná záloha; jej cesta je v `lastReset.backupPath`
+v aktívnom dokumente. Staršie fotografie sa zachovali súkromne pre obnovu.
+Heslá zostali rovnaké, predchádzajúce relácie boli zrušené. Oba účty začínajú
+s nulovými hodnotami, produkty sa pridávajú ako reálne príjmy.
+
+Produkcia používa `D5_LEDGER_PATH=private/d5mfer-ledger-v1.json`. Preview a lokálny
+vývoj majú vlastné dokumenty `private/preview-ledger-v1.json` a
+`private/development-ledger-v1.json`, takže skúšobné zápisy nemenia ostrý sklad.
+Pri chýbajúcom produkčnom dokumente API skončí chybou, neobnovuje ukážkový sklad.
 
 ## Prvé otvorenie
+
+V ostrej inštalácii sa po resete prihlasujete pôvodnými heslami. Nižšie uvedený
+aktivačný postup platí pre novú, zatiaľ neaktivovanú testovaciu inštaláciu.
 
 Vlastník dostane jednorazový aktivačný odkaz s tokenom vo fragmente URL.
 Token nie je súčasťou repozitára a pri otvorení sa odstráni z adresného riadka.
 Nastavia sa heslá pre oboch používateľov (minimálne 12 znakov).
 Po aktivácii už endpoint odmietne ďalšie nastavenie.
 
-Päť produktov je importovaných zo živého katalógu. Počet kusov je `null`,
+Testovacia inštalácia má päť vzorových produktov importovaných zo starého katalógu. Ostrý sklad po dohodnutom resete začína prázdny. Počet kusov je `null`,
 pretože existujúci web množstvá neeviduje. Každý produkt vyžaduje počiatočný
 stav; neodhadujeme, že ide o jeden kus. Počiatočné stavy nevytvárajú historické
 platby. Staršie vklady a náklady treba pri ostrom štarte odsúhlasiť osobitne.
@@ -130,7 +145,7 @@ npm run dev
 ```
 
 Potrebné premenné: `BLOB_READ_WRITE_TOKEN`, `SESSION_SECRET`, `BOOTSTRAP_TOKEN`,
-`APP_MODE=test`. Úložisko musí byť súkromné. Ak prostredie používa HTTP proxy,
+`APP_MODE=test`, `D5_LEDGER_PATH=private/development-ledger-v1.json`. Úložisko musí byť súkromné. Ak prostredie používa HTTP proxy,
 pre lokálny Node.js nastavte `NODE_USE_ENV_PROXY=1`.
 
 Testy zahŕňajú skladové a finančné pravidlá, heslá a relácie a DOM priechod
@@ -143,13 +158,14 @@ inštalácii** s `ALLOW_TEST_RESET=yes`; dočasné QA dáta po sebe vymaže.
 
 1. Vlastníci dokončia testovanie a výslovne požiadajú o reset.
 2. Zálohovať testovacie údaje, resetovať testovacie finančné pohyby, sklad,
-   fotografie a prístupy podľa dohodnutého rozsahu; vytvoriť nový aktivačný token.
+   fotografie a prístupy podľa dohodnutého rozsahu. Pri zachovaní účtov ponechať
+   heslá, obnoviť identifikátory relácií a neotvárať opätovnú aktiváciu.
 3. Zadať skutočné počiatočné množstvá a dohodnúť, ako sa evidujú staršie platby.
 4. Nastaviť APP_MODE=live a aktualizovať texty testovacieho katalógu/odkazov.
 5. Na existujúcom projekte `d5mfer` nastaviť a overiť presné presmerovanie dát
    `/catalog.json` na `https://d5mfer-app-d5-mfer.vercel.app/api/index?action=catalog`
    (project-level rewrite, nie HTTP redirect). Zachovať existujúce routy a cache
-   `no-store`. Toto prepojenie zatiaľ **nie je zapnuté**.
+   `no-store`. V tejto ostrej prevádzke je toto prepojenie zapnuté.
 6. Overiť posledný kus, nový produkt, fotky, galériu a počty na pôvodnom webe.
 
 Nenasadzovať nekompletnú zálohu pôvodného webu: obsahuje samostatný serverový
