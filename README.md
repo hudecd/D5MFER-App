@@ -54,7 +54,10 @@ popisu. Pred uložením ho možno upraviť; pri existujúcom produkte je tlačid
 nový návrh. Server používa Vercel AI Gateway a SDK `ai`, s existujúcim OIDC
 Vercel runtime alebo s explicitne nastaveným `AI_GATEWAY_API_KEY`. Model možno
 zmeniť cez `AI_GATEWAY_MODEL` (predvolený `openai/gpt-5.4-mini`, overený v živom
-zozname modelov). Žiadny poskytovateľský kľúč nepatrí do klienta. Generovanie
+zozname modelov). Nasadená testovacia appka má `AI_GATEWAY_MODEL=openai/gpt-5.4-nano`,
+ktorý je dostupný z aktivovaného bezplatného kreditu. Pôvodný model mini nie je
+v bezplatnej ponuke. Generovanie s modelom nano bolo overené živou fotografiou
+a úspešnou odpoveďou 200. Žiadny poskytovateľský kľúč nepatrí do klienta. Generovanie
 vyžaduje prihlásenie a je limitované na 12 pokusov za 15 minút na osobu.
 AI iba navrhuje text, nemení sklad ani produkt. Neodhadujú sa materiál,
 veľkosť, stav ani pravosť; označenie repliky a referenčnej fotografie sa
