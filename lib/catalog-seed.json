@@ -1,0 +1,132 @@
+{
+  "version": 1,
+  "updatedAt": "2026-10-26",
+  "products": [
+    {
+      "id": "D5-001",
+      "name": "Beanie Black / Grey",
+      "category": "beanies",
+      "color": "black",
+      "colorLabel": "Čierna / sivý motív",
+      "price": 35,
+      "description": "Čierna čiapka so sivým motívom Arc’teryx. Ide o repliku, nie originálny výrobok značky. Konkrétny kus a jeho stav si môžeš pozrieť osobne.",
+      "details": [
+        "Typ: čiapka",
+        "Farba: čierna so sivým motívom",
+        "Veľkosť a materiál: over osobne"
+      ],
+      "images": [
+        {
+          "src": "assets/black-grey.png",
+          "crop": "beanie-grey",
+          "alt": "Čierna čiapka so sivým motívom, dodaná fotografia"
+        }
+      ],
+      "photoNote": "Fotografia dodaná majiteľom katalógu.",
+      "availability": "available",
+      "visible": true,
+      "createdAt": "2026-10-26T10:00:00Z"
+    },
+    {
+      "id": "D5-002",
+      "name": "Beanie Black / White",
+      "category": "beanies",
+      "color": "black",
+      "colorLabel": "Čierna / biely motív",
+      "price": 35,
+      "description": "Čierna čiapka s kontrastným bielym motívom Arc’teryx. Ide o repliku, nie originálny výrobok značky. Konkrétny kus a jeho stav si môžeš pozrieť osobne.",
+      "details": [
+        "Typ: čiapka",
+        "Farba: čierna s bielym motívom",
+        "Veľkosť a materiál: over osobne"
+      ],
+      "images": [
+        {
+          "src": "assets/black-white.jpg",
+          "crop": "beanie-white",
+          "alt": "Čierne čiapky s bielym motívom, dodaná fotografia"
+        }
+      ],
+      "photoNote": "Fotografia dodaná majiteľom katalógu. Uvedená cena je za jeden kus.",
+      "availability": "available",
+      "visible": true,
+      "createdAt": "2026-10-26T10:01:00Z"
+    },
+    {
+      "id": "D5-003",
+      "name": "Grey Zip Hoodie",
+      "category": "hoodies",
+      "color": "grey",
+      "colorLabel": "Sivá",
+      "price": 70,
+      "description": "Sivá mikina na zips s kapucňou. Ide o repliku, nie originálny výrobok značky. Priložená fotografia slúži iba ako referencia vzhľadu, nie ako fotografia konkrétneho ponúkaného kusu.",
+      "details": [
+        "Typ: mikina na zips s kapucňou",
+        "Farba: sivá",
+        "Veľkosť, materiál a stav: over osobne"
+      ],
+      "images": [
+        {
+          "src": "assets/hoodie-reference.jpg",
+          "crop": "hoodie-reference",
+          "alt": "Referenčná fotografia sivej mikiny na zips s kapucňou"
+        }
+      ],
+      "photoNote": "Referenčná fotografia zo screenshotu s uvedeným zdrojom Next Direct. Nahradí sa vlastnou fotografiou konkrétneho kusu.",
+      "referenceImage": true,
+      "availability": "available",
+      "visible": true,
+      "createdAt": "2026-10-26T10:02:00Z"
+    },
+    {
+      "id": "D5-004",
+      "name": "Sp5der Black Hoodie",
+      "category": "hoodies",
+      "color": "black",
+      "colorLabel": "Čierna / ružová potlač",
+      "price": 35,
+      "description": "Čierna mikina s kapucňou, ružovým nápisom a výrazným motívom pavučiny. Farebné detaily dodajú outfitu výrazný streetwear vzhľad. Replika značky Sp5der.",
+      "details": [
+        "Typ: mikina s kapucňou",
+        "Farba: čierna s farebnou potlačou",
+        "Veľkosť, materiál a stav: over osobne"
+      ],
+      "images": [
+        {
+          "src": "assets/sp5der-black-hoodie.jpg",
+          "crop": "sp5der-hoodie",
+          "alt": "Čierna mikina Sp5der s kapucňou, ružovým nápisom a motívom pavučiny"
+        }
+      ],
+      "photoNote": "Fotografia dodaná pre katalóg.",
+      "availability": "available",
+      "visible": true,
+      "createdAt": "2026-10-26T18:55:08.878515+00:00"
+    },
+    {
+      "id": "D5-005",
+      "name": "Arc’teryx Light Grey Beanie",
+      "category": "beanies",
+      "color": "grey",
+      "colorLabel": "Svetlosivá / biely motív",
+      "price": 35,
+      "description": "Svetlosivá čiapka s veľkým bielym motívom Arc’teryx. Jednoduchá farebná kombinácia, ktorá ľahko doplní každodenný outfit. Replika, nie originálny výrobok značky.",
+      "details": [
+        "Typ: čiapka",
+        "Farba: svetlosivá s bielym motívom",
+        "Veľkosť a materiál: over osobne"
+      ],
+      "images": [
+        {
+          "src": "assets/arcteryx-light-grey-beanie.jpg",
+          "crop": "normal",
+          "alt": "Svetlosivá čiapka Arc’teryx s veľkým bielym motívom"
+        }
+      ],
+      "photoNote": "Fotografia dodaná pre katalóg.",
+      "availability": "available",
+      "visible": true,
+      "createdAt": "2026-10-26T18:55:08.878515+00:00"
+    }
+  ]
+}
