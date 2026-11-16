@@ -4,6 +4,21 @@ Súkromná mobilná PWA pre Damiana a Fera. Bielo-ružový vzhľad, sklad po kus
 predaje so skutočnou prijatou sumou, príjmy s platiteľom, fotografie, história,
 storná, opravy inventúry, prevody medzi partnermi a export JSON/CSV.
 
+Pri prvom spustení možno doplniť staršie nákupy a predaje cez Prehľad alebo
+Účty → Staršie nákupy a predaje. Formulár podporuje nákup aj predaj naraz,
+iba nákup alebo iba predaj. Zadáva sa názov (bez nutnosti produktu v katalógu
+či fotografie), skutočné dátumy, počty kusov, náklady vrátane dopravy a poplatkov,
+platiteľ a osoba, ktorá prijala tržbu. Pri páre môžu byť kúpené a predané počty
+rôzne; predaný počet nesmie prekročiť kúpený. Zvyšné dnešné kusy sa nastavujú
+samostatne cez počiatočný sklad.
+
+Príkaz `historical` uloží `historical_purchase` a/alebo `historical_sale` s
+príznakom `affectsStock: false`. Celý pár sa overí pred uložením; retry s rovnakým
+ID nič neduplikuje. Účty zahŕňajú tieto náklady a príjmy, vrátane ich stornovania.
+Aktuálne produkty, množstvá, nákupné ceny na sklade aj verejná ponuka sa nemenia.
+Záznamy sú označené ako spätne doplnené a sú súčasťou exportu; storno každého
+staršieho pohybu upraví len príslušnú platbu, bez vrátenia tovaru do skladu.
+
 Príjem sa pýta osobitne na doručené kusy a kusy určené do ponuky. Celý fyzický
 počet sa uloží do `stock`; zverejnené množstvo do `listedStock`. Zvyšok zostáva
 v sklade mimo ponuky a dá sa neskôr uvoľniť cez úpravu produktu. Existujúce dáta

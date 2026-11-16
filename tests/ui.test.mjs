@@ -44,5 +44,14 @@ test('mobile UI wires login, opening stock, actual-price sale, history and accou
   submit('#shipment-costs-form');await wait(()=>w.document.querySelector('#confirm-shipment'));assert.equal(data.products[0].stock,0);
   submit('#confirm-shipment');await wait(()=>!w.document.querySelector('#modal').open).catch(e=>{throw new Error(e.message+': '+w.document.querySelector('#confirm-shipment .form-error').textContent);});
   assert.deepEqual(data.products.slice(0,3).map(p=>p.stock),[2,1,1]);assert.equal(snapshot(data,'Damian').accounts.Damian.paid,7300);assert.equal(data.shipments.length,1);
+  const productsBefore=structuredClone(data.products);
+  w.document.querySelector('[data-nav=accounts]').click();w.document.querySelector('#historical-entry').click();
+  fill('productName','Staršia predaná čiapka');fill('purchaseDate','2025-10-01');fill('purchaseQty','2');fill('purchaseGoods','20');fill('purchaseShipping','3');fill('purchaseFees','2');fill('saleDate','2025-10-05');fill('soldQty','2');fill('saleAmount','60');
+  w.document.querySelector('[name=paidBy][value=Fero]').checked=true;
+  submit('#historical-form');await wait(()=>!w.document.querySelector('#modal').open);
+  assert.deepEqual(data.products,productsBefore);assert.equal(snapshot(data,'Damian').accounts.Fero.paid,2500);assert.equal(snapshot(data,'Damian').accounts.Damian.received,8950);
+  w.document.querySelector('[data-nav=history]').click();assert.match(w.document.querySelector('#page').textContent,/Spätne doplnené/);
+  const oldPurchase=data.entries.find(e=>e.type==='historical_purchase');w.document.querySelector(`[data-reverse="${oldPurchase.id}"]`).click();fill('note','Omyl v staršom nákupe');submit('#reverse-form');await wait(()=>!w.document.querySelector('#modal').open);
+  assert.equal(snapshot(data,'Damian').accounts.Fero.paid,0);assert.equal(snapshot(data,'Damian').accounts.Damian.received,8950);assert.deepEqual(data.products,productsBefore);
   dom.window.close();
 });

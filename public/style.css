@@ -5,3 +5,4 @@
 @media(max-width:360px){.product-grid{grid-template-columns:1fr}.form-grid{grid-template-columns:1fr;gap:0}.quick-actions{flex-direction:column}.header-right{gap:4px}.person-pill{font-size:11px}.hero{padding:20px}.hero .value{font-size:38px}}
 @media(prefers-reduced-motion:no-preference){button,.button{transition:background .15s,color .15s,opacity .15s}.panel,.product-card{animation:arrive .2s ease-out}@keyframes arrive{from{transform:translateY(5px);opacity:.6}to{transform:translateY(0);opacity:1}}}
 [hidden]{display:none!important}
+.history-section{border:0;padding:0;margin:22px 0;min-width:0}
