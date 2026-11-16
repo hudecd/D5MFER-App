@@ -30,7 +30,7 @@ export default async function handler(req, res) {
   const url = new URL(req.url, `https://${req.headers.host}`), action = url.searchParams.get('action');
   try {
     if (req.method === 'GET') {
-      if (action === 'health') return json(res, 200, { ok: true, version: '1.0.0' });
+      if (action === 'health') return json(res, 200, { ok: true, version: '1.1.0' });
       if (action === 'catalog') {
         const { state } = await readState(); res.setHeader('Access-Control-Allow-Origin', '*');
         return json(res, 200, publicCatalog(state));
@@ -77,6 +77,38 @@ export default async function handler(req, res) {
       return json(res, 200, snapshot(state, data.person));
     }
     const { state: current } = await readState(), actor = authenticate(req, current);
+    if (action === 'describe') {
+      const product = data.productId ? current.products.find(p => p.id === data.productId) : null;
+      let image;
+      if (product) {
+        const source = product.images[0]?.src || '';
+        const ownedId = source.match(/[?&]id=([a-f0-9-]+)/)?.[1];
+        if (ownedId) {
+          const stored = current.images.find(i => i.id === ownedId);
+          const result = stored && await get(stored.pathname, { access: 'private' });
+          if (!result) throw new AppError('Fotografia produktu sa nenašla.', 404);
+          image = { buffer: Buffer.from(await new Response(result.stream).arrayBuffer()), type: stored.type };
+        } else {
+          const sourceURL = new URL(source);
+          if (sourceURL.origin !== 'https://d5mfer.vercel.app' || !sourceURL.pathname.startsWith('/assets/')) throw new AppError('Nepodporovaný zdroj fotografie. Nahrajte vlastnú fotografiu.');
+          const response = await fetch(sourceURL, { redirect: 'error', signal: AbortSignal.timeout(12000) });
+          if (!response.ok) throw new AppError('Fotografiu sa nepodarilo načítať.', 503);
+          const buffer = Buffer.from(await response.arrayBuffer());
+          if (buffer.length > 6 * 1024 * 1024) throw new AppError('Fotografia je príliš veľká. Nahrajte ju znovu cez príjem.');
+          image = { buffer, type: imageType(buffer) };
+        }
+      } else {
+        const stored = current.images.find(i => i.id === data.imageId);
+        if (!stored) throw new AppError('Najprv nahrajte fotografiu produktu.', 404);
+        const result = await get(stored.pathname, { access: 'private' });
+        if (!result) throw new AppError('Fotografia sa nenašla.', 404);
+        image = { buffer: Buffer.from(await new Response(result.stream).arrayBuffer()), type: stored.type };
+      }
+      await rateLimit(createHash('sha256').update(`describe:${actor}:${process.env.SESSION_SECRET}`).digest('hex'));
+      const { describePhoto } = await import('../lib/descriptions.mjs');
+      const context = product ? { replica: product.replica ?? /replik/i.test(product.description), referenceImage: Boolean(product.referenceImage) } : { replica: data.replica !== false, referenceImage: Boolean(data.referenceImage) };
+      return json(res, 200, await describePhoto(image, context));
+    }
     if (action === 'logout') {
       res.setHeader('Set-Cookie', `d5_session=; Path=/; HttpOnly; SameSite=Strict; Max-Age=0${secure(req) ? '; Secure' : ''}`);
       return json(res, 200, { ok: true });

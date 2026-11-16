@@ -4,6 +4,26 @@ Súkromná mobilná PWA pre Damiana a Fera. Bielo-ružový vzhľad, sklad po kus
 predaje so skutočnou prijatou sumou, príjmy s platiteľom, fotografie, história,
 storná, opravy inventúry, prevody medzi partnermi a export JSON/CSV.
 
+Príjem sa pýta osobitne na doručené kusy a kusy určené do ponuky. Celý fyzický
+počet sa uloží do `stock`; zverejnené množstvo do `listedStock`. Zvyšok zostáva
+v sklade mimo ponuky a dá sa neskôr uvoľniť cez úpravu produktu. Existujúce dáta
+bez `listedStock` si zachovávajú pôvodný význam: všetky skladové kusy sú v ponuke.
+Cena tovaru, poštovné a ostatné poplatky sú uložené oddelene v príjme. Ich súčet
+sa odpočíta od účtu platiteľa; náklad na kus sa počíta zo všetkých doručených
+kusov vrátane tých mimo ponuky. Pri viacerých produktoch v jednom balíku zadajte
+pri každom jeho podiel nákladov, aby sa poštovné nezapočítalo viackrát.
+
+Po nahratí fotografie sa automaticky vyžiada návrh názvu, kategórie, farby a
+popisu. Pred uložením ho možno upraviť; pri existujúcom produkte je tlačidlo na
+nový návrh. Server používa Vercel AI Gateway a SDK `ai`, s existujúcim OIDC
+Vercel runtime alebo s explicitne nastaveným `AI_GATEWAY_API_KEY`. Model možno
+zmeniť cez `AI_GATEWAY_MODEL` (predvolený `openai/gpt-5.4-mini`, overený v živom
+zozname modelov). Žiadny poskytovateľský kľúč nepatrí do klienta. Generovanie
+vyžaduje prihlásenie a je limitované na 12 pokusov za 15 minút na osobu.
+AI iba navrhuje text, nemení sklad ani produkt. Neodhadujú sa materiál,
+veľkosť, stav ani pravosť; označenie repliky a referenčnej fotografie sa
+dopĺňa podľa údajov majiteľov. Výpadok AI nevymaže vyplnený formulár.
+
 ## Nasadenie
 
 - GitHub: `hudecd/D5MFER-App`, produkčná vetva `main`.

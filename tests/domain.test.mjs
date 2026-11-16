@@ -18,3 +18,23 @@ test('inventory correction requires reason, does not create payments',()=>{const
 test('public catalog never exposes costs, cash history, users, stock quantities',()=>{const s=ready();s.users={Damian:{hash:'private'}};const output=JSON.stringify(publicCatalog(s));for(const key of ['stock','unitCostCents','users','entries','commands','private'])assert.equal(output.includes(`"${key}"`),false);});
 test('new product requires owned photo and allows draft then publishing',()=>{const s=ready();s.images.push({id:'photo-1'});const product={name:'Nová čiapka',category:'beanies',priceCents:3500,description:'Vlastná fotografia, replika.',imageIds:['photo-1'],published:false};cmd(s,{type:'receipt',qty:3,amountCents:4500,person:'Fero',product});const p=s.products.at(-1);assert.equal(p.stock,3);assert.equal(publicCatalog(s).products.at(-1).visible,false);cmd(s,{type:'product',productId:p.id,name:p.name,priceCents:4000,description:p.description,published:true});assert.equal(publicCatalog(s).products.at(-1).visible,true);assert.equal(p.price,40);});
 test('rejects malformed money, dates, quantity and persons',()=>{for(const changes of [{amountCents:1.5},{amountCents:-2},{qty:0},{qty:1.5},{person:'Someone'},{date:'2026-99-99'}])assert.throws(()=>cmd(ready(),{type:'sale',productId:'D5-001',qty:1,amountCents:3500,person:'Damian',...changes}));});
+test('parcel records all received pieces, only selected pieces go on offer, all fees charge the payer',()=>{
+  const s=ready(0);cmd(s,{type:'receipt',productId:'D5-001',qty:10,listedQty:8,amountCents:1,costs:{goodsCents:10000,shippingCents:2000,feesCents:500},person:'Fero'});
+  assert.equal(s.products[0].stock,10);assert.equal(s.products[0].listedStock,8);assert.equal(s.products[0].unitCostCents,1250);assert.equal(summary(s).Fero.paid,12500);
+  assert.deepEqual(s.entries.at(-1).costs,{goodsCents:10000,shippingCents:2000,feesCents:500,amountCents:12500});
+  cmd(s,{type:'sale',productId:'D5-001',qty:8,amountCents:28000,person:'Damian'});assert.equal(s.products[0].stock,2);assert.equal(publicCatalog(s).products[0].visible,false);
+  assert.throws(()=>cmd(s,{type:'sale',productId:'D5-001',qty:1,amountCents:3500,person:'Damian'}),/dostatok/);
+  const p=s.products[0];cmd(s,{type:'product',productId:p.id,name:p.name,description:p.description,priceCents:3500,published:true,listedQty:2});assert.equal(publicCatalog(s).products[0].visible,true);
+});
+test('receipt may place zero pieces on offer and its reversal restores offered count and fees',()=>{
+  const s=ready(2);cmd(s,{type:'receipt',productId:'D5-001',qty:3,listedQty:0,costs:{goodsCents:3000,shippingCents:500,feesCents:100},person:'Fero'});
+  assert.equal(s.products[0].stock,5);assert.equal(s.products[0].listedStock,2);cmd(s,{type:'reversal',entryId:s.entries.at(-1).id,note:'Omyl'});
+  assert.equal(s.products[0].stock,2);assert.equal(s.products[0].listedStock,2);assert.equal(summary(s).Fero.paid,0);
+});
+test('received/listed counts and separate fees are validated on server',()=>{
+  for(const changes of [{listedQty:11},{listedQty:-1},{costs:{goodsCents:100,shippingCents:-1,feesCents:0}},{costs:{goodsCents:100,shippingCents:0,feesCents:1.5}}])assert.throws(()=>cmd(ready(),{type:'receipt',productId:'D5-001',qty:10,listedQty:8,costs:{goodsCents:100,shippingCents:0,feesCents:0},person:'Damian',...changes}));
+});
+test('legacy stock without listing field keeps original availability',()=>{
+  const s=ready(3);delete s.products[0].listedStock;cmd(s,{type:'receipt',productId:'D5-001',qty:4,listedQty:2,amountCents:4000,person:'Fero'});assert.equal(s.products[0].listedStock,5);assert.equal(s.products[0].stock,7);
+  const output=JSON.stringify(publicCatalog(s));assert.equal(output.includes('listedStock'),false);assert.equal(output.includes('shippingCents'),false);
+});

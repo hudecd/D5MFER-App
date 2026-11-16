@@ -8,7 +8,7 @@ const wait = async (predicate) => { for(let i=0;i<60;i++){if(predicate())return;
 test('mobile UI wires login, opening stock, actual-price sale, history and accounts to API',async()=>{
   const html=await readFile(new URL('../public/index.html',import.meta.url),'utf8'),code=await readFile(new URL('../public/app.js',import.meta.url),'utf8');
   const dom=new JSDOM(html,{url:'https://d5mfer-app.vercel.app',runScripts:'outside-only'}),w=dom.window;
-  w.scrollTo=()=>{};w.crypto.randomUUID=randomUUID;w.HTMLDialogElement.prototype.showModal=function(){this.open=true;};w.HTMLDialogElement.prototype.close=function(){this.open=false;};
+  w.scrollTo=()=>{};w.crypto.randomUUID=randomUUID;w.URL.revokeObjectURL=()=>{};w.HTMLDialogElement.prototype.showModal=function(){this.open=true;};w.HTMLDialogElement.prototype.close=function(){this.open=false;};
   let signedIn=false;const data=initialState();
   w.fetch=async(path,options={})=>{const action=new URL(path,w.location.href).searchParams.get('action');let status=200,result;
     if(action==='status')result={initialized:true,mode:'test'};
@@ -27,6 +27,12 @@ test('mobile UI wires login, opening stock, actual-price sale, history and accou
   assert.equal(data.products[0].stock,0);assert.equal(snapshot(data,'Damian').accounts.Damian.received,2950);
   w.document.querySelector('[data-nav=history]').click();assert.match(w.document.querySelector('#page').textContent,/Predaj/);
   w.document.querySelector('[data-nav=accounts]').click();assert.match(w.document.querySelector('#page').textContent,/29,50/);
-  w.document.querySelector('[data-nav=receipt]').click();assert.ok(w.document.querySelector('#photo-input'));w.document.querySelector('#receipt-existing').click();assert.ok(w.document.querySelector('#receipt-product'));
+  w.document.querySelector('[data-nav=receipt]').click();assert.ok(w.document.querySelector('#photo-input'));assert.ok(w.document.querySelector('#suggest-description'));w.document.querySelector('#receipt-existing').click();assert.ok(w.document.querySelector('#receipt-product'));
+  w.document.querySelector('#receipt-product').value='D5-001';
+  const fill=(name,value)=>{const el=w.document.querySelector(`[name=${name}]`);el.value=value;el.dispatchEvent(new w.Event('input',{bubbles:true}));};
+  fill('qty','10');assert.equal(w.document.querySelector('[name=listedQty]').value,'10');fill('listedQty','8');fill('goods','100');fill('shipping','20');fill('fees','5');
+  assert.match(w.document.querySelector('#receipt-totals').textContent,/125,00/);assert.match(w.document.querySelector('#receipt-totals').textContent,/12,50/);
+  submit('#receipt-form');await wait(()=>w.document.querySelector('#confirm-receipt'));assert.equal(data.products[0].stock,0);assert.match(w.document.querySelector('#modal-content').textContent,/Poštovné/);
+  submit('#confirm-receipt');await wait(()=>!w.document.querySelector('#modal').open).catch(e=>{throw new Error(e.message+': '+w.document.querySelector('#confirm-receipt .form-error').textContent);});assert.equal(data.products[0].stock,10);assert.equal(data.products[0].listedStock,8);assert.equal(snapshot(data,'Damian').accounts.Damian.paid,12500);
   dom.window.close();
 });
