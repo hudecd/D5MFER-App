@@ -10,8 +10,29 @@ v sklade mimo ponuky a dá sa neskôr uvoľniť cez úpravu produktu. Existujúc
 bez `listedStock` si zachovávajú pôvodný význam: všetky skladové kusy sú v ponuke.
 Cena tovaru, poštovné a ostatné poplatky sú uložené oddelene v príjme. Ich súčet
 sa odpočíta od účtu platiteľa; náklad na kus sa počíta zo všetkých doručených
-kusov vrátane tých mimo ponuky. Pri viacerých produktoch v jednom balíku zadajte
-pri každom jeho podiel nákladov, aby sa poštovné nezapočítalo viackrát.
+kusov vrátane tých mimo ponuky.
+
+Príjem celého balíka začína otázkou na počet druhov tovaru (1 až 50).
+Každý druh sa zadá samostatne ako nový alebo existujúci produkt, s fotkou,
+cenou samotného tovaru, doručeným počtom a počtom kusov do ponuky. Až po
+poslednom druhu sa zadá poštovné, ostatné poplatky a spoločný platiteľ.
+Zadané druhy možno pred potvrdením upraviť alebo pridať ďalší.
+
+Spoločné poštovné a poplatky sa rozpočítajú úmerne podľa počtu všetkých
+doručených kusov. Rovnaký počet kusov dostane rovnaký podiel bez ohľadu na
+cenu produktu. Zaokrúhľuje sa každá zložka osobitne na celé centy, zvyšné centy
+sa rozdelia podľa najväčších zvyškov (pri zhode podľa poradia položiek).
+Súčet podielov sa presne rovná zadanému poštovnému a poplatkom.
+
+Klient aj server používajú rovnaký výpočet v `public/shipment-costs.js`.
+Príkaz `shipment` sa overí na kópii aktuálneho stavu a všetky položky sa
+uložia jediným podmieneným zápisom. Chyba posledného druhu tak neuloží ani
+predchádzajúce druhy. Každý príjem v denníku má `shipmentId`, poradie položky
+a vlastný podiel nákladov. Hlavička v `shipments` je iba prehľad; finančné
+súčty vychádzajú z príjmov, takže poštovné sa nezapočíta druhýkrát.
+Opakované odoslanie toho istého balíka používa rovnaké ID a nemení sklad ani účty.
+Rozpracovaný balík sa drží v pamäti otvorenej stránky; do skladu a účtov sa
+zapíše až po konečnom potvrdení. Fotografie sa počas prípravy ukladajú súkromne.
 
 Po nahratí fotografie sa automaticky vyžiada návrh názvu, kategórie, farby a
 popisu. Pred uložením ho možno upraviť; pri existujúcom produkte je tlačidlo na

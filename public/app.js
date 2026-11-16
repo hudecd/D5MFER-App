@@ -1,3 +1,4 @@
+import { allocateShipmentCosts } from './shipment-costs.js';
 const app = document.getElementById('app');
 const modal = document.getElementById('modal');
 const content = document.getElementById('modal-content');
@@ -11,7 +12,7 @@ const paths = {home:'<path d="m3 10 9-7 9 7v10H3Z"/><path d="M9 20v-7h6v7"/>',st
 const icon = name => `<svg class="icon" viewBox="0 0 24 24" aria-hidden="true">${paths[name] || paths.plus}</svg>`;
 const brand = () => `<div class="brand-wrap"><div class="mark"><img src="/assets/logo.png" alt=""></div><div class="brand">D5MFER<span>.</span></div></div>`;
 let state = null, page = 'home', stockFilter = 'all', stockQuery = '', historyPerson = '', mode = 'test', activationToken = '';
-let toastTimer;
+let toastTimer, shipmentDraft=null, captureReceiptDraft=null;
 function toast(message, error = false) { const t = $('#toast'); t.textContent = message; t.className = error ? 'error' : ''; t.hidden = false; clearTimeout(toastTimer); toastTimer = setTimeout(() => t.hidden = true, 5500); }
 async function api(action, data) {
   if (!navigator.onLine) throw new Error('Ste offline. Zápisy vyžadujú pripojenie, aby bol sklad spoločný pre oba telefóny.');
@@ -27,20 +28,13 @@ const amountField = (label, name, value = '', min = '0.01') => `<div class="fiel
 const countField = (label = 'Počet kusov', value = 1) => `<div class="field"><label for="field-qty">${label}</label><input id="field-qty" name="qty" type="number" inputmode="numeric" min="0" max="10000" step="1" value="${value}" required></div>`;
 const forSale = p => p.listedStock ?? p.stock;
 function receiptNumbers() {
-  return `<h3 class="section-space">Koľko kusov prišlo?</h3><div class="form-grid section-space">${countField('Doručené kusy tohto produktu',1)}<div class="field"><label for="listed-qty">Koľko kusov nahodiť do ponuky?</label><input id="listed-qty" name="listedQty" type="number" inputmode="numeric" min="0" max="1" step="1" value="1" required></div></div><p class="help">Všetky doručené kusy sa uložia do skladu. Kusy, ktoré nenahodíte, zostanú evidované mimo ponuky.</p><h3 class="section-space">Koľko ste zaplatili?</h3><div class="section-space">${amountField('Cena tovaru spolu (€)','goods','','0')}<div class="form-grid">${amountField('Poštovné (€)','shipping','0','0')}${amountField('Všetky ostatné poplatky (€)','fees','0','0')}</div></div><p class="help">Napríklad clo, DPH, poplatok sprostredkovateľovi alebo platobnej službe. Pri balíku s viacerými produktmi zadajte pri každom len jeho podiel nákladov, aby sa poštovné nezapočítalo dvakrát.</p><div class="note" id="receipt-totals" aria-live="polite"></div>`;
+  return `<h3 class="section-space">Koľko kusov prišlo?</h3><div class="form-grid section-space">${countField('Doručené kusy tohto produktu',1)}<div class="field"><label for="listed-qty">Koľko kusov nahodiť do ponuky?</label><input id="listed-qty" name="listedQty" type="number" inputmode="numeric" min="0" max="1" step="1" value="1" required></div></div><p class="help">Všetky doručené kusy sa uložia do skladu. Zvyšok zostane mimo ponuky.</p><div class="section-space">${amountField('Cena tovaru tohto druhu spolu (€)','goods','','0')}</div><p class="help">Iba cena tohto tovaru. Spoločné poštovné a poplatky zadáte až po poslednom druhu.</p><div class="note" id="receipt-totals" aria-live="polite"></div>`;
 }
 function wireReceiptNumbers(form) {
-  let linked = true;
-  const received = $('[name=qty]',form), listed = $('[name=listedQty]',form);
-  received.min='1';
-  const calculate=()=>{
-    const count=Number(received.value), offered=Number(listed.value);
-    listed.max=received.value;listed.setCustomValidity(offered>count?'Do ponuky môžete nahodiť najviac toľko kusov, koľko prišlo.':'');
-    const total=['goods','shipping','fees'].reduce((sum,name)=>sum+cents($(`[name=${name}]`,form).value||'0'),0);
-    $('#receipt-totals').innerHTML=`<div class="totals-row"><span>Zaplatené spolu</span><strong class="number">${money(total)}</strong></div><div class="totals-row section-space"><span>Náklad na doručený kus</span><strong class="number">${count>0?money(Math.round(total/count)):'—'}</strong></div><p class="small">Do ponuky: ${offered} ks · mimo ponuky: ${Math.max(0,count-offered)} ks</p>`;
-  };
-  received.addEventListener('input',()=>{if(linked)listed.value=received.value;calculate();});listed.addEventListener('input',()=>{linked=false;calculate();});
-  for(const name of ['goods','shipping','fees'])$(`[name=${name}]`,form).addEventListener('input',calculate);calculate();
+  const received=$('[name=qty]',form),listed=$('[name=listedQty]',form),goods=$('[name=goods]',form);
+  let linked=listed.value===received.value;received.min='1';
+  const calculate=()=>{const count=Number(received.value),offered=Number(listed.value),total=cents(goods.value||'0');listed.max=received.value;listed.setCustomValidity(offered>count?'Do ponuky môžete nahodiť najviac toľko kusov, koľko prišlo.':'');$('#receipt-totals').innerHTML=`<div class="totals-row"><span>Tovar tohto druhu spolu</span><strong>${money(total)}</strong></div><p class="small">Do ponuky ${offered} ks · mimo ponuky ${Math.max(0,count-offered)} ks. Poštovné a poplatky doplníme na konci.</p>`;};
+  received.addEventListener('input',()=>{if(linked)listed.value=received.value;calculate();});listed.addEventListener('input',()=>{linked=false;calculate();});goods.addEventListener('input',calculate);calculate();
 }
 const errorElement = () => '<p class="form-error" role="alert" hidden></p>';
 function wireForm(form, submit) {
@@ -58,7 +52,7 @@ function authScreen(initialized) {
   if (initialized) wireForm($('#login-form'), async fd => { state = await api('login',Object.fromEntries(fd)); render(); });
 }
 async function refresh(silent = false) { try { state = await api('state'); render(); if (!silent) toast('Sklad je aktuálny.'); } catch(e) { if(e.status===401) authScreen(true); else toast(e.message,true); } }
-function show(next) { page = next; render(); window.scrollTo({top:0}); }
+function show(next) { if(page==='receipt')captureReceiptDraft?.(); page = next; render(); window.scrollTo({top:0}); }
 function render() {
   if (!state) return;
   app.innerHTML = `<div class="shell"><header class="header">${brand()}<div class="header-right"><span class="person-pill">${esc(state.actor)}</span><button class="icon-button" id="refresh" aria-label="Obnoviť sklad">${icon('refresh')}</button></div></header>${!navigator.onLine ? '<div class="offline">Ste offline. Sklad načítate a upravíte po pripojení.</div>' : ''}${mode === 'test' ? '<div class="note neutral small">Testovací režim · Zápisy menia iba testovací katalóg. Živý web zostáva bez zmien.</div>' : ''}<main id="page"></main><nav class="nav" aria-label="Hlavná navigácia">${[['home','Prehľad','home'],['stock','Sklad','stock'],['receipt','Príjem','plus'],['history','História','history'],['accounts','Účty','accounts']].map(([id,label,i])=>`<button data-nav="${id}" ${page===id?'aria-current="page"':''}>${icon(i)}<span>${label}</span></button>`).join('')}</nav></div>`;
@@ -82,21 +76,81 @@ function drawProducts(){ const items=state.products.filter(p=>(`${p.name} ${p.id
 }
 function activityList(entries, detailed=false){if(!entries.length)return `<div class="empty">${icon('history')}<p>Zatiaľ tu nie sú žiadne pohyby.</p><p class="small">Prvý predaj alebo príjem sa zobrazí tu.</p></div>`;
   const labels={sale:'Predaj',receipt:'Príjem tovaru',opening:'Počiatočný sklad',adjustment:'Oprava skladu',product:'Úprava produktu',transfer:'Prevod medzi vami',reversal:'Storno'};
-  return entries.map(e=>{const reversed=state.entries.some(r=>r.reversesId===e.id);const p=state.products.find(p=>p.id===e.productId);const amount=['sale','receipt','transfer'].includes(e.type)?`${e.type==='receipt'?'−':e.type==='sale'?'+':''}${money(e.amountCents)}`:'';return `<div class="activity"><div class="activity-icon ${e.type==='sale'?'sale':''}">${icon(e.type==='sale'?'coins':e.type==='receipt'?'stock':e.type==='transfer'?'arrow':'history')}</div><div class="activity-main"><strong>${labels[e.type]||esc(e.type)}${reversed?' · stornované':''}</strong><p>${esc(e.productName||p?.name||'')}${e.qty!=null?` · ${e.qty} ks`:''}</p><p>${esc(e.person||e.createdBy)}${e.to?` → ${esc(e.to)}`:''} · ${esc(e.date)}${detailed?` · zapísal ${esc(e.createdBy)}`:''}</p>${e.type==='receipt'&&e.costs?`<p>Do ponuky ${e.listedQty??e.qty} ks · tovar ${money(e.costs.goodsCents)} · poštovné ${money(e.costs.shippingCents)} · poplatky ${money(e.costs.feesCents)}</p>`:''}${e.note?`<p>${esc(e.note)}</p>`:''}</div><div class="activity-end number">${reversed?`<s>${amount}</s>`:amount}${detailed&&!reversed&&['sale','receipt','transfer'].includes(e.type)?`<button class="link-button small" data-reverse="${e.id}">Storno</button>`:''}</div></div>`;}).join('');
+  return entries.map(e=>{const reversed=state.entries.some(r=>r.reversesId===e.id);const p=state.products.find(p=>p.id===e.productId);const amount=['sale','receipt','transfer'].includes(e.type)?`${e.type==='receipt'?'−':e.type==='sale'?'+':''}${money(e.amountCents)}`:'';return `<div class="activity"><div class="activity-icon ${e.type==='sale'?'sale':''}">${icon(e.type==='sale'?'coins':e.type==='receipt'?'stock':e.type==='transfer'?'arrow':'history')}</div><div class="activity-main"><strong>${labels[e.type]||esc(e.type)}${reversed?' · stornované':''}</strong><p>${esc(e.productName||p?.name||'')}${e.qty!=null?` · ${e.qty} ks`:''}</p><p>${esc(e.person||e.createdBy)}${e.to?` → ${esc(e.to)}`:''} · ${esc(e.date)}${detailed?` · zapísal ${esc(e.createdBy)}`:''}</p>${e.shipmentId?`<p>Balík · druh ${e.shipmentIndex} z ${e.shipmentItems}</p>`:''}${e.type==='receipt'&&e.costs?`<p>Do ponuky ${e.listedQty??e.qty} ks · tovar ${money(e.costs.goodsCents)} · poštovné ${money(e.costs.shippingCents)} · poplatky ${money(e.costs.feesCents)}</p>`:''}${e.note?`<p>${esc(e.note)}</p>`:''}</div><div class="activity-end number">${reversed?`<s>${amount}</s>`:amount}${detailed&&!reversed&&['sale','receipt','transfer'].includes(e.type)?`<button class="link-button small" data-reverse="${e.id}">Storno</button>`:''}</div></div>`;}).join('');
 }
 function historyPage(){const entries=state.entries.filter(e=>!historyPerson||e.person===historyPerson||e.createdBy===historyPerson).slice().reverse();$('#page').innerHTML=`<div class="heading"><div><h1>História</h1><p class="muted small">Každý pohyb má svoj záznam.</p></div><button class="button" id="export-csv">${icon('download')} CSV</button></div><div class="search-row"><label class="small" for="history-person">Osoba</label><select id="history-person" class="history-filter"><option value="">Všetci</option>${['Damian','Fero'].map(p=>`<option ${historyPerson===p?'selected':''}>${p}</option>`).join('')}</select></div><div class="panel">${activityList(entries,true)}</div>`;$('#history-person').addEventListener('change',e=>{historyPerson=e.target.value;historyPage();});$('#export-csv').addEventListener('click',exportCSV);$$('[data-reverse]').forEach(b=>b.addEventListener('click',()=>reverseModal(b.dataset.reverse)));}
 function receiptPage(){
-  $('#page').innerHTML=`<div class="heading receipt-heading"><div><h1>Prišiel nový balík.</h1><p class="muted small">Pridajte tovar a zapíšte, kto ho zaplatil.</p></div></div><div class="form-panel"><div class="panel"><div class="segmented" aria-label="Typ príjmu"><button id="receipt-new" aria-pressed="true">Nový produkt</button><button id="receipt-existing" aria-pressed="false">Doplniť existujúci</button></div><div id="receipt-fields" class="section-space"></div></div></div>`;
-  const load=existing=>{$('#receipt-new').setAttribute('aria-pressed',!existing);$('#receipt-existing').setAttribute('aria-pressed',existing);receiptForm(existing);};$('#receipt-new').addEventListener('click',()=>load(false));$('#receipt-existing').addEventListener('click',()=>load(true));load(false);
+  captureReceiptDraft=null;
+  $('#page').innerHTML=`<div class="heading receipt-heading"><div><h1>Prišiel nový balík.</h1><p class="muted small">Najprv všetky druhy tovaru, potom spoločné náklady.</p></div></div><div class="form-panel"><div class="panel" id="shipment-stage"></div></div>`;
+  if(!shipmentDraft||shipmentDraft.stage==='count'){shipmentCountScreen();return;}
+  if(shipmentDraft.stage==='costs'){shipmentCostsScreen();return;}
+  const index=shipmentDraft.index,saved=shipmentDraft.cache[index]||shipmentDraft.items[index];
+  $('#shipment-stage').innerHTML=`<div class="section-title"><h2>Druh ${index+1} z ${shipmentDraft.count}</h2><span class="badge pink">${shipmentDraft.items.filter(Boolean).length} pripravených</span></div><p class="help">Odlišnú farbu, model alebo veľkosť môžete zadať ako samostatný druh.</p><div class="segmented section-space" aria-label="Typ príjmu"><button id="receipt-new">Nový produkt</button><button id="receipt-existing">Doplniť existujúci</button></div><div id="receipt-fields" class="section-space"></div><button class="button full section-space" id="shipment-back" type="button">${index?'Späť na predchádzajúci druh':'Upraviť počet druhov'}</button>`;
+  const load=existing=>{$('#receipt-new').setAttribute('aria-pressed',!existing);$('#receipt-existing').setAttribute('aria-pressed',existing);receiptForm(existing);};
+  $('#receipt-new').addEventListener('click',()=>{captureReceiptDraft?.();load(false);});$('#receipt-existing').addEventListener('click',()=>{captureReceiptDraft?.();load(true);});
+  $('#shipment-back').addEventListener('click',()=>{captureReceiptDraft?.();if(index)shipmentDraft.index--;else shipmentDraft.stage='count';receiptPage();});
+  load(Boolean(saved?.productId));
+}
+function shipmentCountScreen(){
+  $('#shipment-stage').innerHTML=`<h2>Koľko druhov tovaru prišlo?</h2><p class="help section-space">Napríklad čierna čiapka, sivá čiapka a mikina sú 3 druhy. Počet kusov zadáte pri každom zvlášť.</p><form id="shipment-count-form" class="section-space"><div class="field"><label for="shipment-count">Počet rôznych produktov v balíku</label><input id="shipment-count" name="count" type="number" inputmode="numeric" min="1" max="50" step="1" value="${shipmentDraft?.count||3}" required></div><button class="button primary full" type="submit">Začať zadávať tovar ${icon('arrow')}</button>${errorElement()}</form><p class="help section-space">Poštovné a ostatné poplatky sa pýtame iba raz, až po poslednom druhu. Celý balík sa uloží po spoločnom potvrdení.</p>`;
+  wireForm($('#shipment-count-form'),async fd=>{
+    const count=Number(fd.get('count'));if(!Number.isInteger(count)||count<1||count>50)throw new Error('Zadajte 1 až 50 druhov tovaru.');
+    if(!shipmentDraft)shipmentDraft={key:crypto.randomUUID(),count,index:0,stage:'items',items:[],cache:[],shipping:'0',fees:'0',person:state.actor,date:today(),note:''};
+    else{shipmentDraft.count=count;shipmentDraft.items=shipmentDraft.items.slice(0,count);shipmentDraft.cache=shipmentDraft.cache.slice(0,count);shipmentDraft.index=0;shipmentDraft.stage='items';}
+    const missing=Array.from({length:count},(_,i)=>i).find(i=>!shipmentDraft.items[i]);
+    if(missing==null)shipmentDraft.stage='costs';else shipmentDraft.index=missing;
+    receiptPage();
+  });
+}
+function shipmentCostsScreen(){
+  const draft=shipmentDraft;
+  $('#shipment-stage').innerHTML=`<div class="section-title"><h2>Poštovné a poplatky</h2><span class="badge pink">${draft.count} druhov pripravených</span></div><div id="shipment-items"></div><form id="shipment-costs-form" class="section-space"><div class="form-grid">${amountField('Poštovné za celý balík (€)','shipping',draft.shipping,'0')}${amountField('Ostatné poplatky za balík (€)','fees',draft.fees,'0')}</div><p class="help">Napríklad clo, DPH alebo poplatok sprostredkovateľovi. Náklady rozpočítame podľa počtu všetkých doručených kusov. Každý kus dostane rovnaký podiel poštovného a poplatkov; centové rozdiely dorovnáme presne.</p><div class="field section-space"><label>Zaplatil celý balík</label>${persons('person',draft.person)}</div>${dateField()}${noteField(false)}<div class="note" id="shipment-totals" aria-live="polite"></div><button class="button primary full" type="submit">Skontrolovať celý balík ${icon('arrow')}</button>${errorElement()}</form><button class="button full section-space" id="shipment-add-kind" type="button">+ Pridať ďalší druh do balíka</button>`;
+  const form=$('#shipment-costs-form');$('[name=date]',form).value=draft.date;$('[name=note]',form).value=draft.note;
+  const capture=()=>{draft.shipping=$('[name=shipping]',form).value;draft.fees=$('[name=fees]',form).value;draft.person=$('[name=person]:checked',form).value;draft.date=$('[name=date]',form).value;draft.note=$('[name=note]',form).value;};
+  captureReceiptDraft=capture;
+  const calculate=()=>{
+    try{
+      capture();const costs=allocateShipmentCosts(draft.items,cents(draft.shipping||0),cents(draft.fees||0));
+      $('#shipment-items').innerHTML=draft.items.map((item,index)=>{const p=item.product||state.products.find(p=>p.id===item.productId),cost=costs[index];return `<div class="activity"><div class="activity-main"><strong>${index+1}. ${esc(p.name)}</strong><p>Doručené ${item.qty} ks · do ponuky ${item.listedQty} ks</p><p>Tovar ${money(cost.goodsCents)} · poštovné ${money(cost.shippingCents)} · poplatky ${money(cost.feesCents)}</p><p>Náklad na kus: <strong>${money(Math.round(cost.amountCents/item.qty))}</strong></p></div><button class="link-button" type="button" data-edit-shipment-item="${index}">Upraviť</button></div>`;}).join('');
+      const goods=costs.reduce((n,c)=>n+c.goodsCents,0),sum=costs.reduce((n,c)=>n+c.amountCents,0);
+      $('#shipment-totals').innerHTML=`<div class="totals-row"><span>Tovar spolu</span><strong>${money(goods)}</strong></div><div class="totals-row"><span>Poštovné</span><strong>${money(cents(draft.shipping||0))}</strong></div><div class="totals-row"><span>Poplatky</span><strong>${money(cents(draft.fees||0))}</strong></div><div class="totals-row total section-space"><span>Zaplatil ${esc(draft.person)} spolu</span><strong>${money(sum)}</strong></div>`;
+      $$('[data-edit-shipment-item]').forEach(b=>b.addEventListener('click',()=>{capture();draft.index=Number(b.dataset.editShipmentItem);draft.stage='items';receiptPage();}));
+    }catch(e){$('#shipment-totals').textContent=e.message;}
+  };
+  form.addEventListener('input',calculate);calculate();
+  $('#shipment-add-kind').addEventListener('click',()=>{capture();if(draft.count>=50){toast('Balík môže obsahovať najviac 50 druhov.',true);return;}draft.index=draft.count++;draft.stage='items';receiptPage();});
+  wireForm(form,async()=>{capture();shipmentPreview();});
+}
+function shipmentPreview(){
+  const draft=shipmentDraft,items=draft.items.map(({productId,product,qty,listedQty,goodsCents})=>({productId,product,qty,listedQty,goodsCents}));
+  const command={key:draft.key,type:'shipment',items,shippingCents:cents(draft.shipping),feesCents:cents(draft.fees),person:draft.person,date:draft.date,note:draft.note};
+  const costs=allocateShipmentCosts(items,command.shippingCents,command.feesCents),total=costs.reduce((n,c)=>n+c.amountCents,0);
+  openModal('Skontrolovať celý balík',`<p class="muted small">${draft.count} druhov · ${items.reduce((n,i)=>n+i.qty,0)} doručených kusov · ${esc(draft.date)}</p>${items.map((item,index)=>{const p=item.product||state.products.find(p=>p.id===item.productId),c=costs[index];return `<div class="preview-content"><h3>${index+1}. ${esc(p.name)}</h3>${draft.items[index].previewImages?.[0]?`<img src="${esc(draft.items[index].previewImages[0].src)}" alt="Náhľad produktu">`:''}<p>Doručené ${item.qty} ks · do ponuky ${item.listedQty} ks · mimo ponuky ${item.qty-item.listedQty} ks</p><p>Tovar ${money(c.goodsCents)} + poštovné ${money(c.shippingCents)} + poplatky ${money(c.feesCents)}</p><p><strong>Spolu ${money(c.amountCents)}</strong> · náklad na kus ${money(Math.round(c.amountCents/item.qty))}</p></div>`;}).join('')}<div class="note"><strong>Zaplatil ${esc(draft.person)} spolu ${money(total)}</strong><p class="small">Poštovné a poplatky sú už rozpočítané v produktoch. V účte sa započítajú iba raz.</p></div><form id="confirm-shipment"><button class="button primary full" type="submit">Uložiť celý balík ${icon('check')}</button>${errorElement()}</form>`);
+  wireForm($('#confirm-shipment'),async()=>{state=await api('command',command);shipmentDraft=null;captureReceiptDraft=null;modal.close();show('stock');toast(`Balík uložený: ${items.length} druhov tovaru a všetky náklady.`);});
 }
 function receiptForm(existing){
-  const available=state.products.filter(p=>p.stock!==null);
+  const available=state.products.filter(p=>p.stock!==null),index=shipmentDraft.index,cached=shipmentDraft.cache[index]||shipmentDraft.items[index],saved=cached&&Boolean(cached.productId)===existing?cached:null;
   const newProductFields=`<div class="upload"><label for="photo-input">${icon('photo')} Fotografie produktu</label><input id="photo-input" type="file" accept="image/jpeg,image/png,image/webp,image/heic,image/heif" multiple required><p class="help">1 až 6 fotografií. Z prvej fotky automaticky navrhneme názov a popis.</p><div id="photo-previews" class="photo-previews"></div><button class="button full section-space" id="suggest-description" type="button" disabled>Navrhnúť popis z fotky</button><p class="help" id="photo-status" aria-live="polite"></p></div><div class="field"><label for="product-name">Názov produktu</label><input id="product-name" name="name" maxlength="100" placeholder="Doplní sa podľa fotografie" required></div><div class="form-grid"><div class="field"><label for="product-category">Kategória</label><select id="product-category" name="category"><option value="beanies">Čiapky</option><option value="hoodies">Mikiny</option><option value="tshirts">Tričká</option><option value="other">Ostatné</option></select></div><div class="field"><label for="product-color">Farba / veľkosť</label><input id="product-color" name="colorLabel" maxlength="100" placeholder="Farba z fotky · veľkosť doplňte"></div></div><div class="field"><label for="product-description">Popis pre katalóg</label><textarea id="product-description" name="description" maxlength="1800" placeholder="Navrhneme ho podľa fotografie. Pred uložením ho môžete upraviť." required></textarea></div><div class="field"><label class="check"><input type="checkbox" name="replica" checked><span>Ide o repliku — uviesť v popise</span></label><label class="check"><input type="checkbox" name="referenceImage"><span>Fotografia je iba referencia vzhľadu</span></label></div>${amountField('Predajná cena za kus (€)','price')}`;
-  $('#receipt-fields').innerHTML=`<form id="receipt-form">${existing?`<div class="field"><label for="receipt-product">Produkt</label><select id="receipt-product" name="productId" required><option value="">Vyberte produkt</option>${available.map(p=>`<option value="${esc(p.id)}">${esc(p.name)} · ${p.stock} ks celkom</option>`).join('')}</select>${available.length?'':'<p class="help">Najprv nastavte počiatočný počet v záložke Sklad.</p>'}</div>`:newProductFields}${receiptNumbers()}<div class="field section-space"><label>Zaplatil tovar, poštovné aj poplatky</label>${persons('person')}</div>${dateField()}${noteField(false)}${!existing?'<label class="check"><input type="checkbox" name="published" checked><span>Zobraziť vybrané kusy v testovacom katalógu po uložení</span></label>':''}<button class="button primary full section-space" id="receipt-submit" type="submit">${existing?'Skontrolovať príjem':'Náhľad pred uložením'} ${icon('arrow')}</button>${errorElement()}</form>`;
-  const form=$('#receipt-form');wireReceiptNumbers(form);
-  let images=[],previewURLs=[],photoGeneration=0,photoBusy=false;
+  $('#receipt-fields').innerHTML=`<form id="receipt-form">${existing?`<div class="field"><label for="receipt-product">Produkt</label><select id="receipt-product" name="productId" required><option value="">Vyberte produkt</option>${available.map(p=>`<option value="${esc(p.id)}">${esc(p.name)} · ${p.stock} ks celkom</option>`).join('')}</select>${available.length?'':'<p class="help">Najprv nastavte počiatočný počet v záložke Sklad.</p>'}</div>`:newProductFields}${receiptNumbers()}${!existing?'<label class="check"><input type="checkbox" name="published" checked><span>Zobraziť vybrané kusy v testovacom katalógu po uložení</span></label>':''}<button class="button primary full section-space" id="receipt-submit" type="submit">${shipmentDraft.items.filter(Boolean).length===shipmentDraft.count?'Späť na náklady balíka':index+1<shipmentDraft.count?'Ďalší druh tovaru':'Pokračovať na poštovné a poplatky'} ${icon('arrow')}</button>${errorElement()}</form>`;
+  const form=$('#receipt-form');
+  let images=saved?.previewImages?.slice()||[],previewURLs=[],photoGeneration=0,photoBusy=false;
+  if(saved){
+    for(const [name,value] of Object.entries({qty:saved.qty,listedQty:saved.listedQty,goods:saved.goodsCents/100}))$(`[name=${name}]`,form).value=value;
+    if(existing)$('[name=productId]',form).value=saved.productId;
+    else{
+      const product=saved.product;
+      for(const name of ['name','description','category','colorLabel'])$(`[name=${name}]`,form).value=product[name]||'';
+      $('[name=price]',form).value=product.priceCents/100;
+      for(const name of ['replica','referenceImage','published'])$(`[name=${name}]`,form).checked=Boolean(product[name]);
+      $('#photo-input').required=!images.length;
+      $('#photo-previews').innerHTML=images.map(i=>`<img src="${esc(i.src)}" alt="Náhľad produktu">`).join('');
+      $('#suggest-description').disabled=!images.length;
+    }
+  }
+  wireReceiptNumbers(form);
   async function uploadImages(generation=photoGeneration){
     const files=[...$('#photo-input').files];
+    if(!files.length&&images.length)return true;
     if(!files.length||files.length>6)throw new Error('Vyberte 1 až 6 fotografií.');
     for(const file of files.slice(images.length)){
       const base64=await compress(file),uploaded=await api('upload',{base64});
@@ -121,21 +175,30 @@ function receiptForm(existing){
   if(!existing){
     $('#photo-input').addEventListener('change',()=>{
       photoGeneration++;photoBusy=false;previewURLs.forEach(URL.revokeObjectURL);
-      previewURLs=[...$('#photo-input').files].slice(0,6).map(f=>URL.createObjectURL(f));$('#photo-previews').innerHTML=previewURLs.map(url=>`<img src="${url}" alt="Náhľad novej fotografie">`).join('');images=[];
+      previewURLs=[...$('#photo-input').files].slice(0,6).map(f=>URL.createObjectURL(f));$('#photo-input').required=true;$('#photo-previews').innerHTML=previewURLs.map(url=>`<img src="${url}" alt="Náhľad novej fotografie">`).join('');images=[];
       $('#suggest-description').disabled=!previewURLs.length;
       if(previewURLs.length)suggestDescription();else{$('#photo-status').textContent='';$('#receipt-submit').disabled=false;}
     });
     $('#suggest-description').addEventListener('click',suggestDescription);
   }
-  const key=crypto.randomUUID();
+  const collect=fd=>{
+    const item={qty:Number(fd.get('qty')),listedQty:Number(fd.get('listedQty')),goodsCents:cents(fd.get('goods')),previewImages:images.slice()};
+    if(existing)item.productId=fd.get('productId');
+    else item.product={name:fd.get('name'),category:fd.get('category'),colorLabel:fd.get('colorLabel'),description:fd.get('description'),replica:fd.has('replica'),referenceImage:fd.has('referenceImage'),priceCents:cents(fd.get('price')),published:fd.has('published'),imageIds:images.map(i=>i.id)};
+    return item;
+  };
+  captureReceiptDraft=()=>{if(!shipmentDraft)return;try{shipmentDraft.cache[index]=collect(new FormData(form));}catch{}};
   wireForm(form,async fd=>{
     if(photoBusy)throw new Error('Počkajte, kým sa dokončí návrh popisu.');
     if(!existing)await uploadImages();
-    const costs={goodsCents:cents(fd.get('goods')),shippingCents:cents(fd.get('shipping')),feesCents:cents(fd.get('fees'))};
-    const command={key,type:'receipt',date:fd.get('date'),qty:Number(fd.get('qty')),listedQty:Number(fd.get('listedQty')),costs,amountCents:costs.goodsCents+costs.shippingCents+costs.feesCents,person:fd.get('person'),note:fd.get('note')};
-    if(command.listedQty>command.qty)throw new Error('Do ponuky nemôžete nahodiť viac kusov, ako prišlo.');
-    if(existing)command.productId=fd.get('productId');else command.product={name:fd.get('name'),category:fd.get('category'),colorLabel:fd.get('colorLabel'),description:fd.get('description'),replica:fd.has('replica'),referenceImage:fd.has('referenceImage'),priceCents:cents(fd.get('price')),published:fd.has('published'),imageIds:images.map(i=>i.id)};
-    receiptPreview(command,images,async()=>{state=await api('command',command);previewURLs.forEach(URL.revokeObjectURL);modal.close();show('stock');toast('Príjem je uložený. Sklad aj účet sú aktuálne.');});
+    const item=collect(fd);allocateShipmentCosts([item],0,0);
+    if(!Number.isInteger(item.listedQty)||item.listedQty<0||item.listedQty>item.qty)throw new Error('Skontrolujte počet kusov do ponuky.');
+    if(existing&&!item.productId)throw new Error('Vyberte produkt.');
+    if(!existing&&(!item.product.name.trim()||!item.product.description.trim()))throw new Error('Doplňte názov a popis produktu.');
+    shipmentDraft.items[index]=item;shipmentDraft.cache[index]=item;previewURLs.forEach(URL.revokeObjectURL);
+    const missing=Array.from({length:shipmentDraft.count},(_,i)=>i).find(i=>!shipmentDraft.items[i]);
+    if(missing==null)shipmentDraft.stage='costs';else shipmentDraft.index=missing;
+    receiptPage();
   });
 }
 async function compress(file){
@@ -144,11 +207,6 @@ async function compress(file){
   const scale=Math.min(1,1600/Math.max(bitmap.width,bitmap.height)),canvas=document.createElement('canvas');canvas.width=Math.max(1,Math.round(bitmap.width*scale));canvas.height=Math.max(1,Math.round(bitmap.height*scale));const ctx=canvas.getContext('2d');ctx.fillStyle='#ffffff';ctx.fillRect(0,0,canvas.width,canvas.height);ctx.drawImage(bitmap,0,0,canvas.width,canvas.height);bitmap.close();const encoded=canvas.toDataURL('image/jpeg',.85).split(',')[1];if(encoded.length>2800000)throw new Error('Fotografia je stále príliš veľká. Skúste menší obrázok.');return encoded;
 }
 function openModal(title,html){content.innerHTML=`<div class="modal-head"><h2 id="modal-title">${title}</h2><button class="icon-button" data-close aria-label="Zavrieť">${icon('close')}</button></div>${html}`;$('[data-close]',content).addEventListener('click',()=>modal.close());if(!modal.open)modal.showModal();}
-function receiptPreview(command,images,save){
-  const p=command.product||state.products.find(p=>p.id===command.productId),c=command.costs;
-  openModal('Skontrolovať príjem',`<div class="preview-content">${images[0]?`<img src="${esc(images[0].src)}" alt="Náhľad produktu">`:''}<h3>${esc(p.name)}</h3>${p.description?`<p>${esc(p.description)}</p>`:''}<p>Doručené: <strong>${command.qty} ks</strong> · do ponuky: <strong>${command.listedQty} ks</strong> · mimo ponuky: ${command.qty-command.listedQty} ks</p><hr><div class="totals-row"><span>Tovar</span><strong>${money(c.goodsCents)}</strong></div><div class="totals-row"><span>Poštovné</span><strong>${money(c.shippingCents)}</strong></div><div class="totals-row"><span>Ostatné poplatky</span><strong>${money(c.feesCents)}</strong></div><p>Zaplatil ${esc(command.person)}: <strong>${money(command.amountCents)}</strong></p><p>Náklad na doručený kus: ${money(Math.round(command.amountCents/command.qty))}</p>${command.product?`<p>Predajná cena: ${money(command.product.priceCents)} / ks</p><p>${command.product.published&&command.listedQty>0?'Vybrané kusy sa zverejnia v testovacom katalógu.':'Produkt zostane skrytý v katalógu.'}</p>`:''}</div><form id="confirm-receipt"><button class="button primary full" type="submit">Potvrdiť a uložiť ${icon('check')}</button>${errorElement()}</form>`);
-  wireForm($('#confirm-receipt'),save);
-}
 function productSummary(p){return `<div class="modal-product"><img src="${esc(p.images[0]?.src||'/assets/icon-192.png')}" alt=""><div><strong>${esc(p.name)}</strong><p>${p.stock===null?'Počet kusov ešte nie je nastavený':`Sklad: ${p.stock} ks · ponuka: ${forSale(p)} ks · mimo ponuky: ${p.stock-forSale(p)} ks`}</p></div></div>`;}
 function saleModal(id){const items=state.products.filter(p=>forSale(p)>0);if(!items.length){toast('Najprv doplňte počty kusov alebo príjem tovaru.',true);show('stock');return;}const selected=items.find(p=>p.id===id)||items[0];openModal('Predal som',`<form id="sale-form"><div class="field"><label for="sale-product">Produkt na sklade</label><select id="sale-product" name="productId">${items.map(p=>`<option value="${esc(p.id)}" ${p.id===selected.id?'selected':''}>${esc(p.name)} · ${forSale(p)} ks v ponuke</option>`).join('')}</select></div><div class="form-grid">${countField()}${amountField('Prijatá suma spolu (€)','amount',selected.price)}</div><p class="help">Skutočne prijatá suma za celý predaj, aj ak ste dali zľavu.</p><div class="field section-space"><label>Predal / prijal peniaze</label>${persons('person')}</div>${dateField()}${noteField(false)}<div class="note small">Posledný kus sa automaticky skryje z testovacieho katalógu.</div><button class="button primary full" type="submit">Potvrdiť predaj ${icon('check')}</button>${errorElement()}</form>`);const form=$('#sale-form'),key=crypto.randomUUID();$('#sale-product').addEventListener('change',e=>{const p=items.find(p=>p.id===e.target.value);$('[name=amount]',form).value=p.price*Number($('[name=qty]',form).value);});$('[name=qty]',form).min='1';wireForm(form,async fd=>{state=await api('command',{key,type:'sale',productId:fd.get('productId'),qty:Number(fd.get('qty')),amountCents:cents(fd.get('amount')),person:fd.get('person'),date:fd.get('date'),note:fd.get('note')});modal.close();render();toast('Predaj uložený. Peniaze aj sklad sú aktualizované.');});}
 function openingModal(p){openModal('Počiatočný sklad',`${productSummary(p)}<form id="opening-form">${countField('Koľko kusov máte teraz?',0)}<div class="field"><label for="unit-cost">Nákupný náklad za kus (€ · voliteľné)</label><input id="unit-cost" name="unitCost" type="number" inputmode="decimal" min="0" step="0.01" placeholder="Ak ho poznáte"></div><div class="note small">Týmto nastavíte sklad. Minulé platby sa nikomu nepripíšu ani neodpočítajú; evidenciu peňazí začínate odteraz.</div><button class="button primary full" type="submit">Uložiť počiatočný stav</button>${errorElement()}</form>`);const key=crypto.randomUUID();wireForm($('#opening-form'),async fd=>{state=await api('command',{key,type:'opening',productId:p.id,qty:Number(fd.get('qty')),unitCostCents:fd.get('unitCost')===''?null:cents(fd.get('unitCost')),date:today()});modal.close();render();toast('Počiatočný sklad uložený.');});}
