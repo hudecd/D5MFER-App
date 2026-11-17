@@ -30,7 +30,7 @@ export default async function handler(req, res) {
   const url = new URL(req.url, `https://${req.headers.host}`), action = url.searchParams.get('action');
   try {
     if (req.method === 'GET') {
-      if (action === 'health') return json(res, 200, { ok: true, version: '1.5.0' });
+      if (action === 'health') return json(res, 200, { ok: true, version: '1.6.0' });
       if (action === 'catalog') {
         const { state } = await readState(); res.setHeader('Access-Control-Allow-Origin', '*');
         return json(res, 200, publicCatalog(state));
