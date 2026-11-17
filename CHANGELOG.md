@@ -1,5 +1,9 @@
 # Zmeny v D5MFER
 
+## 1.7.0
+
+- V úprave produktu možno po potvrdení odstrániť omylom pridanú kartu bez aktívneho príjmu alebo predaja. Odstránenie sa zapíše do Histórie.
+
 ## 1.6.0
 
 - **Sklad → Pridať položku** uloží súkromný produkt už so samotným slovenským názvom.

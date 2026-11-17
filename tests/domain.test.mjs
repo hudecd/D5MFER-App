@@ -1,9 +1,41 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { randomUUID } from 'node:crypto';
-import { initialState, applyCommand, publicCatalog, summary } from '../lib/domain.mjs';
+import { initialState, applyCommand, publicCatalog, snapshot, summary } from '../lib/domain.mjs';
 const cmd=(s,c)=>applyCommand(s,{key:randomUUID(),date:'2026-11-16',...c},'Damian');
 function ready(qty=2){const s=initialState();cmd(s,{type:'opening',productId:'D5-001',qty,unitCostCents:1000});return s;}
+
+test('removing a card with opening stock removes it from the catalog and keeps an audit entry', () => {
+  const s = ready(1), product = s.products[0];
+  const command = { key: randomUUID(), date: '2026-11-16', type: 'product_remove', productId: product.id,
+    expectedStock: 1, expectedName: product.name, expectedPublished: product.published };
+  assert.equal(snapshot(s, 'Damian').products[0].canRemove, true);
+  assert.throws(() => applyCommand(s, { ...command, expectedStock: 2 }, 'Damian'), /Položka sa zmenila/);
+  applyCommand(s, command, 'Damian');
+  assert.equal(s.products.some(p => p.id === product.id), false);
+  assert.equal(publicCatalog(s).products.some(p => p.id === product.id), false);
+  assert.equal(s.entries[0].type, 'opening');
+  assert.equal(s.entries.at(-1).productName, product.name);
+  assert.equal(s.entries.at(-1).qty, -1);
+  assert.equal(summary(s).Damian.balance, 0);
+  assert.deepEqual(applyCommand(s, command, 'Damian'), { duplicate: true });
+});
+
+test('active purchases or sales block deletion and reversed transactions remain in history', () => {
+  for (const [type, amountCents] of [['receipt', 0], ['sale', 2500]]) {
+    const s = ready(), product = s.products[0];
+    const { entryId } = cmd(s, { type, productId: product.id, qty: 1, amountCents, person: 'Fero' });
+    const remove = () => cmd(s, { type: 'product_remove', productId: product.id,
+      expectedStock: product.stock, expectedName: product.name, expectedPublished: product.published });
+    assert.equal(snapshot(s, 'Damian').products[0].canRemove, false);
+    assert.throws(remove, /zaevidovaný príjem alebo predaj/);
+    cmd(s, { type: 'reversal', entryId, note: 'Omyl' });
+    assert.equal(snapshot(s, 'Damian').products[0].canRemove, true);
+    remove();
+    assert.ok(s.entries.some(entry => entry.id === entryId));
+    assert.equal(summary(s).Fero.balance, 0);
+  }
+});
 
 test('import does not invent stock counts or historical payments',()=>{const s=initialState();assert.equal(s.products.length,5);assert.ok(s.products.every(p=>p.stock===null));assert.equal(summary(s).Damian.balance,0);assert.equal(publicCatalog(s).products.filter(p=>p.visible).length,5);assert.throws(()=>cmd(s,{type:'sale',productId:'D5-001',qty:1,amountCents:3500,person:'Damian'}),/počiatočný/);});
 test('sale uses actual received amount and hides only the last item',()=>{const s=ready();cmd(s,{type:'sale',productId:'D5-001',qty:1,amountCents:3000,person:'Fero'});assert.equal(s.products[0].stock,1);assert.equal(summary(s).Fero.received,3000);assert.equal(publicCatalog(s).products[0].visible,true);cmd(s,{type:'sale',productId:'D5-001',qty:1,amountCents:3500,person:'Damian'});assert.equal(publicCatalog(s).products[0].visible,false);assert.equal(publicCatalog(s).products[1].visible,true);});
