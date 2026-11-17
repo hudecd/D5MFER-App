@@ -31,7 +31,7 @@ test('mobile UI wires login, opening stock, actual-price sale, history and accou
   w.document.querySelector('[data-nav=history]').click();assert.match(w.document.querySelector('#page').textContent,/Predaj/);
   w.document.querySelector('[data-nav=accounts]').click();assert.match(w.document.querySelector('#page').textContent,/29,50/);
   w.document.querySelector('[data-nav=receipt]').click();assert.ok(w.document.querySelector('#shipment-count'));assert.equal(w.document.querySelector('[name=shipping]'),null);submit('#shipment-count-form');await wait(()=>w.document.querySelector('#receipt-form'));
-  assert.ok(w.document.querySelector('#photo-input'));assert.ok(w.document.querySelector('#suggest-description'));
+  w.document.querySelector('#receipt-new').click();assert.ok(w.document.querySelector('#photo-input'));assert.ok(w.document.querySelector('#suggest-description'));
   const fill=(name,value)=>{const el=w.document.querySelector(`[name=${name}]`);el.value=value;el.dispatchEvent(new w.Event('input',{bubbles:true}));};
   for(const [index,id,qty,goods] of [[0,'D5-001',2,20],[1,'D5-002',1,10],[2,'D5-003',1,30]]){
     w.document.querySelector('#receipt-existing').click();w.document.querySelector('#receipt-product').value=id;fill('qty',String(qty));fill('goods',String(goods));

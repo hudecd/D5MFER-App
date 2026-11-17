@@ -1,4 +1,4 @@
-const CACHE = 'd5mfer-shell-v5';
+const CACHE = 'd5mfer-shell-v6';
 const SHELL = ['/', '/index.html', '/style.css', '/app.js', '/shipment-costs.js', '/assets/logo.png', '/assets/icon-192.png', '/assets/icon-512.png', '/manifest.webmanifest'];
 self.addEventListener('install', event => { event.waitUntil(caches.open(CACHE).then(cache => cache.addAll(SHELL))); self.skipWaiting(); });
 self.addEventListener('activate', event => { event.waitUntil(caches.keys().then(keys => Promise.all(keys.filter(key => key !== CACHE).map(key => caches.delete(key))))); self.clients.claim(); });
