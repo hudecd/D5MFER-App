@@ -65,6 +65,11 @@ dopĺňa podľa údajov majiteľov. Výpadok AI nevymaže vyplnený formulár.
 
 ## Nasadenie
 
+Každú dokončenú a overenú zmenu ulož na GitHub s commitom, ktorý opisuje jej účel.
+Pri novej verzii aktualizuj `CHANGELOG.md`, zosúlaď verziu v `package.json`,
+`package-lock.json` a odpovedi `health` v `api/index.mjs`. Po overení nasadenia
+označ príslušný commit anotovaným tagom `vX.Y.Z` a odošli aj tag na GitHub.
+
 - GitHub: `hudecd/D5MFER-App`, produkčná vetva `main`.
 - Vercel: `d5mfer-app`, tím `d5-mfer`, Node.js 24, výstup `public/`.
 - Git integrácia je nastavená pre main. Doterajšie verzie boli nasadené cez Vercel API; odoslanie zdrojov do GitHubu čaká na oprávnenie Contents write. GitHub Actions sú pripravené v zdrojoch.
